@@ -64,11 +64,10 @@ record.
 
 ## Status
 
-The gateway's anonymous tier is being rolled out. If `/mcp` calls return
-`401` today, the anonymous tier has not yet shipped on the hosted endpoint —
-this is tracked and does not require any change on your side; the plugin will
-start working the moment the endpoint goes live. `/health` is already live
-and returns `200`.
+The gateway's anonymous tier is **live**. An unauthenticated MCP
+`initialize` POST to `https://agents.modernmiracle.org/mcp` negotiates and
+returns `200` — no token, no account. `/health` is live and returns `200`.
+CI smoke-tests both on every push.
 
 ## License
 

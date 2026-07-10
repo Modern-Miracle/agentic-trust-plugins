@@ -1,0 +1,8 @@
+# Default owners for everything in this repository.
+* @mak-mm
+
+# Supply-chain-sensitive surfaces: the MCP wiring and CI must not change
+# without the maintainer's review.
+/plugins/gateway/.mcp.json @mak-mm
+/.github/ @mak-mm
+/.claude-plugin/ @mak-mm

@@ -21,7 +21,7 @@ private plugin and is **not** part of this repository. See
 
 ## Plugins
 
-### agent-gateway (v0.1.0)
+### agent-gateway (v0.1.1)
 
 Wires Claude Code to the hosted Agentic Trust gateway
 (`https://agents.modernmiracle.org/mcp`) over remote streamable-HTTP MCP. No
