@@ -1,0 +1,23 @@
+{
+  "$schema": "https://www.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "agent-gateway",
+  "version": "0.1.0",
+  "description": "The open verifier of the Agentic Trust dual (ADR-69/70). Wires Claude Code to the hosted Agentic Trust gateway over remote HTTP MCP, so your agents' privileged calls are checked against MM-issued CIS-4 AgentAuthorityCredential / CIS-8004 identity records on Concordium at call time, including live revocation. Anonymous and rate-limited: no API key, no OAuth, no account. Every independent deployment widens enforcement coverage without touching the issuer's signing key.",
+  "author": {
+    "name": "Modern Miracle",
+    "email": "mak@modern-miracle.com"
+  },
+  "homepage": "https://github.com/Modern-Miracle/agentic-trust-plugins",
+  "repository": "https://github.com/Modern-Miracle/agentic-trust-plugins",
+  "license": "MIT",
+  "keywords": [
+    "concordium",
+    "agent-identity",
+    "credential-verification",
+    "gateway",
+    "mcp",
+    "trust",
+    "revocation"
+  ],
+  "category": "security"
+}
