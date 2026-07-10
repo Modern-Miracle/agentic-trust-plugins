@@ -2,7 +2,7 @@
   "$schema": "https://www.schemastore.org/claude-code-marketplace.json",
   "name": "agentic-trust",
   "description": "Public Claude Code plugin marketplace for the Agentic Trust network: the open, anonymous, rate-limited enforcement gateway that verifies MM-issued agent credentials on Concordium (restricted issuer / open verifier — ADR-70).",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "owner": {
     "name": "Modern Miracle",
     "email": "mak@modern-miracle.com"
@@ -13,7 +13,7 @@
       "displayName": "Agent Gateway",
       "source": "./plugins/gateway",
       "description": "Wires the hosted Agentic Trust gateway MCP so any Claude Code agent can route privileged calls through the open, anonymous, rate-limited enforcement layer that verifies MM-issued CIS-4/CIS-8004 credentials on Concordium. No key, no auth, no account.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "author": {
         "name": "Modern Miracle",
         "email": "mak@modern-miracle.com"

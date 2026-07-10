@@ -14,9 +14,9 @@ jobs:
     name: JSON schema validation
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: "3.12"
 
@@ -51,12 +51,17 @@ jobs:
     name: .mcp.json shape validation
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       - name: Validate .mcp.json is valid JSON with the correct remote-http shape
         run: |
           python3 - <<'PY'
           import json
+
+          # The exact hosted gateway endpoint this plugin is allowed to wire.
+          # A PR that swaps the host (MCP-URL substitution) MUST fail here —
+          # a scheme-only check is not enough (audit finding F1).
+          EXPECTED_URL = "https://agents.modernmiracle.org/mcp"
 
           with open("plugins/gateway/.mcp.json") as f:
               cfg = json.load(f)
@@ -70,8 +75,10 @@ jobs:
               assert entry.get("type") in ("http", "streamable-http"), (
                   f"{name}: expected type 'http' (or alias 'streamable-http'), got {entry.get('type')!r}"
               )
-              assert isinstance(entry.get("url"), str) and entry["url"].startswith("https://"), (
-                  f"{name}: url must be an https:// string"
+              # EXACT equality, not just an https:// scheme check. Any other
+              # URL is a supply-chain substitution and must be rejected.
+              assert entry.get("url") == EXPECTED_URL, (
+                  f"{name}: url must be exactly {EXPECTED_URL!r}, got {entry.get('url')!r}"
               )
               # Open/anonymous tier: no static auth header should ever be committed here.
               assert "headers" not in entry, f"{name}: no auth headers expected on the open verifier tier"
@@ -83,8 +90,11 @@ jobs:
   gateway-reachability:
     name: gateway reachability smoke test
     runs-on: ubuntu-latest
+    # Informational: a transient outage of the hosted gateway must not block
+    # merging repo changes. The job still runs and reports on every PR.
+    continue-on-error: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       - name: Health endpoint responds 200
         run: |
@@ -92,42 +102,46 @@ jobs:
           echo "GET /health -> $code"
           test "$code" = "200"
 
-      - name: MCP endpoint responds without a token
-        # TODO: tighten this to assert a 200 / valid MCP initialize handshake
-        # once the anonymous gateway tier ships (tracked in the registry as
-        # track A1). Today the endpoint requires auth and returns 401 for an
-        # unauthenticated request; this check only proves the server is up
-        # and answering, not a connection failure or a 5xx.
+      - name: Anonymous MCP initialize responds 200 (no token)
+        # The anonymous tier is LIVE: an unauthenticated `initialize` POST
+        # with the streamable-HTTP Accept pair negotiates and returns 200.
+        # Assert exactly that — a 401, 5xx, or 000 is a regression of the
+        # open verifier tier (audit finding F5).
         run: |
           code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 \
             -X POST https://agents.modernmiracle.org/mcp \
-            -H "Content-Type: application/json" \
-            -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}')
-          echo "POST /mcp (no token) -> $code"
-          if [ "$code" = "000" ]; then
-            echo "Connection failure to /mcp — gateway appears unreachable" >&2
-            exit 1
-          fi
+            -H "content-type: application/json" \
+            -H "accept: application/json, text/event-stream" \
+            -H "user-agent: node" \
+            -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"ci-smoke","version":"0.0.1"}}}')
+          echo "POST /mcp (anonymous initialize) -> $code"
+          test "$code" = "200"
 
   secret-scan:
     name: gitleaks secret scan
     runs-on: ubuntu-latest
     env:
       GITLEAKS_VERSION: "8.30.1"
+      # sha256 of gitleaks_8.30.1_linux_x64.tar.gz from the official release
+      # checksums file (gitleaks_8.30.1_checksums.txt).
+      GITLEAKS_SHA256: "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           fetch-depth: 0
 
       # gitleaks/gitleaks-action v2+ requires a paid org license
       # (https://github.com/gitleaks/gitleaks-action#-announcement). Run the
-      # OSS gitleaks CLI directly instead, pinned by version.
-      - name: Install gitleaks
+      # OSS gitleaks CLI directly instead, pinned by version AND verified
+      # against its official sha256 before execution (audit finding F3).
+      - name: Install gitleaks (checksum-verified)
         run: |
           curl -sSL -o gitleaks.tar.gz \
             "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          echo "${GITLEAKS_SHA256}  gitleaks.tar.gz" | sha256sum -c -
           tar -xzf gitleaks.tar.gz gitleaks
           sudo mv gitleaks /usr/local/bin/gitleaks
+          gitleaks version
 
       - name: Run gitleaks
         run: gitleaks detect --source . --redact -v
@@ -136,9 +150,9 @@ jobs:
     name: markdown link check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
-      - uses: gaurav-nelson/github-action-markdown-link-check@1.0.17
+      - uses: gaurav-nelson/github-action-markdown-link-check@3c3b66f1f7d0900e37b71eca45b63ea9eedfce31 # 1.0.17
         with:
           use-quiet-mode: "yes"
           config-file: ".github/mlc-config.json"
