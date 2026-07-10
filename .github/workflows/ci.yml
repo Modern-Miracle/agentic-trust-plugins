@@ -112,14 +112,25 @@ jobs:
   secret-scan:
     name: gitleaks secret scan
     runs-on: ubuntu-latest
+    env:
+      GITLEAKS_VERSION: "8.30.1"
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - uses: gitleaks/gitleaks-action@v2.3.9
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # gitleaks/gitleaks-action v2+ requires a paid org license
+      # (https://github.com/gitleaks/gitleaks-action#-announcement). Run the
+      # OSS gitleaks CLI directly instead, pinned by version.
+      - name: Install gitleaks
+        run: |
+          curl -sSL -o gitleaks.tar.gz \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          tar -xzf gitleaks.tar.gz gitleaks
+          sudo mv gitleaks /usr/local/bin/gitleaks
+
+      - name: Run gitleaks
+        run: gitleaks detect --source . --redact -v
 
   markdown-link-check:
     name: markdown link check
@@ -127,7 +138,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: gaurav-nelson/github-action-markdown-link-check@v1.0.15
+      - uses: gaurav-nelson/github-action-markdown-link-check@1.0.17
         with:
           use-quiet-mode: "yes"
           config-file: ".github/mlc-config.json"
