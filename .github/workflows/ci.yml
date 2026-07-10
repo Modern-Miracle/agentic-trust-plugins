@@ -1,0 +1,144 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  schema-validate:
+    name: JSON schema validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install check-jsonschema
+        run: pip install check-jsonschema==0.31.3
+
+      - name: Validate marketplace.json against claude-code-marketplace schema
+        run: |
+          check-jsonschema \
+            --schemafile https://www.schemastore.org/claude-code-marketplace.json \
+            .claude-plugin/marketplace.json
+
+      - name: Validate plugin.json files against claude-code-plugin-manifest schema
+        run: |
+          check-jsonschema \
+            --schemafile https://www.schemastore.org/claude-code-plugin-manifest.json \
+            plugins/gateway/.claude-plugin/plugin.json
+
+      - name: marketplace.json / plugin.json consistency check
+        run: |
+          python3 - <<'PY'
+          import json
+          m = json.load(open(".claude-plugin/marketplace.json"))
+          for p in m["plugins"]:
+              pj = json.load(open(p["source"] + "/.claude-plugin/plugin.json"))
+              assert p["name"] == pj["name"], (p["name"], pj["name"])
+              assert p["version"] == pj["version"], (p["name"], p["version"], pj["version"])
+          print("marketplace consistent:", [f'{p["name"]}@{p["version"]}' for p in m["plugins"]])
+          PY
+
+  mcp-config-validate:
+    name: .mcp.json shape validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate .mcp.json is valid JSON with the correct remote-http shape
+        run: |
+          python3 - <<'PY'
+          import json
+
+          with open("plugins/gateway/.mcp.json") as f:
+              cfg = json.load(f)
+
+          servers = cfg.get("mcpServers")
+          assert isinstance(servers, dict) and servers, "mcpServers must be a non-empty object"
+
+          for name, entry in servers.items():
+              # Remote HTTP servers must declare type + url explicitly.
+              # ("streamable-http" is accepted by Claude Code as an alias for "http".)
+              assert entry.get("type") in ("http", "streamable-http"), (
+                  f"{name}: expected type 'http' (or alias 'streamable-http'), got {entry.get('type')!r}"
+              )
+              assert isinstance(entry.get("url"), str) and entry["url"].startswith("https://"), (
+                  f"{name}: url must be an https:// string"
+              )
+              # Open/anonymous tier: no static auth header should ever be committed here.
+              assert "headers" not in entry, f"{name}: no auth headers expected on the open verifier tier"
+              assert "headersHelper" not in entry, f"{name}: no auth headers expected on the open verifier tier"
+
+          print("mcp config OK:", json.dumps(servers, indent=2))
+          PY
+
+  gateway-reachability:
+    name: gateway reachability smoke test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Health endpoint responds 200
+        run: |
+          code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 https://agents.modernmiracle.org/health)
+          echo "GET /health -> $code"
+          test "$code" = "200"
+
+      - name: MCP endpoint responds without a token
+        # TODO: tighten this to assert a 200 / valid MCP initialize handshake
+        # once the anonymous gateway tier ships (tracked in the registry as
+        # track A1). Today the endpoint requires auth and returns 401 for an
+        # unauthenticated request; this check only proves the server is up
+        # and answering, not a connection failure or a 5xx.
+        run: |
+          code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 \
+            -X POST https://agents.modernmiracle.org/mcp \
+            -H "Content-Type: application/json" \
+            -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}')
+          echo "POST /mcp (no token) -> $code"
+          if [ "$code" = "000" ]; then
+            echo "Connection failure to /mcp — gateway appears unreachable" >&2
+            exit 1
+          fi
+
+  secret-scan:
+    name: gitleaks secret scan
+    runs-on: ubuntu-latest
+    env:
+      GITLEAKS_VERSION: "8.30.1"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # gitleaks/gitleaks-action v2+ requires a paid org license
+      # (https://github.com/gitleaks/gitleaks-action#-announcement). Run the
+      # OSS gitleaks CLI directly instead, pinned by version.
+      - name: Install gitleaks
+        run: |
+          curl -sSL -o gitleaks.tar.gz \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          tar -xzf gitleaks.tar.gz gitleaks
+          sudo mv gitleaks /usr/local/bin/gitleaks
+
+      - name: Run gitleaks
+        run: gitleaks detect --source . --redact -v
+
+  markdown-link-check:
+    name: markdown link check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: gaurav-nelson/github-action-markdown-link-check@1.0.17
+        with:
+          use-quiet-mode: "yes"
+          config-file: ".github/mlc-config.json"
