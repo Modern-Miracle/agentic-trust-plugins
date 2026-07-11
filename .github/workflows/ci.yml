@@ -29,22 +29,68 @@ jobs:
             --schemafile https://www.schemastore.org/claude-code-marketplace.json \
             .claude-plugin/marketplace.json
 
-      - name: Validate plugin.json files against claude-code-plugin-manifest schema
+      - name: Discover plugin.json files (glob, not manifest listing) and validate against schema
+        # Discovered by glob under plugins/*/.claude-plugin/, not by reading
+        # marketplace.json's plugin list — a plugin directory the manifest
+        # doesn't mention must still be schema-validated (audit finding G10).
+        # An empty glob is a broken check, not a pass.
         run: |
+          files=$(find plugins -mindepth 3 -maxdepth 3 -path '*/.claude-plugin/plugin.json' | sort)
+          if [ -z "$files" ]; then
+            echo "no plugin.json found under plugins/*/.claude-plugin/ — glob is broken or plugins/ is empty"
+            exit 1
+          fi
+          echo "validating:"
+          echo "$files"
           check-jsonschema \
             --schemafile https://www.schemastore.org/claude-code-plugin-manifest.json \
-            plugins/gateway/.claude-plugin/plugin.json
+            $files
 
-      - name: marketplace.json / plugin.json consistency check
+      - name: marketplace.json <-> plugins/ directory consistency (both directions)
         run: |
           python3 - <<'PY'
-          import json
+          import glob, json, os, sys
+
+          errs = []
           m = json.load(open(".claude-plugin/marketplace.json"))
-          for p in m["plugins"]:
-              pj = json.load(open(p["source"] + "/.claude-plugin/plugin.json"))
-              assert p["name"] == pj["name"], (p["name"], pj["name"])
-              assert p["version"] == pj["version"], (p["name"], p["version"], pj["version"])
-          print("marketplace consistent:", [f'{p["name"]}@{p["version"]}' for p in m["plugins"]])
+          entries = m.get("plugins", [])
+
+          manifest_dirs = set()
+          for p in entries:
+              name = p.get("name")
+              src = (p.get("source") or "").lstrip("./")
+              manifest_dirs.add(src)
+              pj_path = os.path.join(src, ".claude-plugin", "plugin.json")
+              if not os.path.exists(pj_path):
+                  errs.append(f"{name}: marketplace.json points at {src!r} but {pj_path} is missing")
+                  continue
+              pj = json.load(open(pj_path))
+              if p.get("name") != pj.get("name"):
+                  errs.append(f"{name}: plugin.json name is {pj.get('name')!r}")
+              if p.get("version") != pj.get("version"):
+                  errs.append(
+                      f"{name}: version differs between marketplace.json "
+                      f"({p.get('version')!r}) and plugin.json ({pj.get('version')!r})"
+                  )
+
+          # Reverse direction: every plugin directory actually present on
+          # disk must be declared in the marketplace manifest. A PR adding
+          # plugins/foo/ with its own manifest but no marketplace entry must
+          # fail CI, not slip through untested (audit finding G10).
+          on_disk_dirs = {
+              os.path.dirname(os.path.dirname(p))
+              for p in glob.glob("plugins/*/.claude-plugin/plugin.json")
+          }
+          undeclared = on_disk_dirs - manifest_dirs
+          if undeclared:
+              errs.append(
+                  "plugin dir(s) present on disk but missing from marketplace.json: "
+                  f"{sorted(undeclared)}"
+              )
+
+          if errs:
+              print("\n".join(errs)); sys.exit(1)
+          print("marketplace consistent:", [f'{p["name"]}@{p["version"]}' for p in entries])
           PY
 
   mcp-config-validate:
@@ -53,38 +99,68 @@ jobs:
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
-      - name: Validate .mcp.json is valid JSON with the correct remote-http shape
+      - name: Validate every .mcp.json under plugins/ has the correct remote-http shape
         run: |
           python3 - <<'PY'
-          import json
+          import glob, json, sys
 
-          # The exact hosted gateway endpoint this plugin is allowed to wire.
-          # A PR that swaps the host (MCP-URL substitution) MUST fail here —
-          # a scheme-only check is not enough (audit finding F1).
-          EXPECTED_URL = "https://agents.modernmiracle.org/mcp"
+          # Every hosted gateway endpoint any plugin in this marketplace is
+          # allowed to wire. A PR that swaps the host (MCP-URL substitution)
+          # MUST fail here — a scheme-only check is not enough (audit finding
+          # F1), and this allowlist is enforced against EVERY plugin's
+          # .mcp.json, not just one hardcoded path (audit finding G10).
+          ALLOWED_MCP_URLS = {
+              "https://agents.modernmiracle.org/mcp",
+          }
 
-          with open("plugins/gateway/.mcp.json") as f:
-              cfg = json.load(f)
+          # Discovered by glob under plugins/, not by reading the marketplace
+          # manifest's plugin list — a plugin directory the manifest doesn't
+          # mention must still be validated (and therefore still fail if it
+          # ships an unsafe .mcp.json). No unvalidated escape hatch.
+          paths = sorted(glob.glob("plugins/*/.mcp.json"))
+          if not paths:
+              print("no .mcp.json found under plugins/*/ — glob is broken or plugins/ is empty")
+              sys.exit(1)
 
-          servers = cfg.get("mcpServers")
-          assert isinstance(servers, dict) and servers, "mcpServers must be a non-empty object"
+          errs = []
+          for path in paths:
+              with open(path) as f:
+                  cfg = json.load(f)
 
-          for name, entry in servers.items():
-              # Remote HTTP servers must declare type + url explicitly.
-              # ("streamable-http" is accepted by Claude Code as an alias for "http".)
-              assert entry.get("type") in ("http", "streamable-http"), (
-                  f"{name}: expected type 'http' (or alias 'streamable-http'), got {entry.get('type')!r}"
-              )
-              # EXACT equality, not just an https:// scheme check. Any other
-              # URL is a supply-chain substitution and must be rejected.
-              assert entry.get("url") == EXPECTED_URL, (
-                  f"{name}: url must be exactly {EXPECTED_URL!r}, got {entry.get('url')!r}"
-              )
-              # Open/anonymous tier: no static auth header should ever be committed here.
-              assert "headers" not in entry, f"{name}: no auth headers expected on the open verifier tier"
-              assert "headersHelper" not in entry, f"{name}: no auth headers expected on the open verifier tier"
+              servers = cfg.get("mcpServers")
+              if not isinstance(servers, dict) or not servers:
+                  errs.append(f"{path}: mcpServers must be a non-empty object")
+                  continue
 
-          print("mcp config OK:", json.dumps(servers, indent=2))
+              for name, entry in servers.items():
+                  who = f"{path}:{name}"
+                  # Remote HTTP servers must declare type + url explicitly.
+                  # ("streamable-http" is accepted by Claude Code as an alias for "http".)
+                  if entry.get("type") not in ("http", "streamable-http"):
+                      errs.append(
+                          f"{who}: expected type 'http' (or alias 'streamable-http'), "
+                          f"got {entry.get('type')!r}"
+                      )
+                  # EXACT membership in the allowlist, not just an https://
+                  # scheme check. Any other URL is a supply-chain substitution.
+                  if entry.get("url") not in ALLOWED_MCP_URLS:
+                      errs.append(
+                          f"{who}: url must be one of {sorted(ALLOWED_MCP_URLS)}, "
+                          f"got {entry.get('url')!r}"
+                      )
+                  # Open/anonymous tier: no static auth header should ever be committed here.
+                  if "headers" in entry:
+                      errs.append(f"{who}: no auth headers expected on the open verifier tier")
+                  if "headersHelper" in entry:
+                      errs.append(f"{who}: no auth headers expected on the open verifier tier")
+
+          if errs:
+              print("\n".join(errs))
+              sys.exit(1)
+
+          print(f"mcp config OK ({len(paths)} file(s)):")
+          for path in paths:
+              print(" -", path)
           PY
 
   gateway-reachability:
