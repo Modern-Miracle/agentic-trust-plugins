@@ -232,3 +232,89 @@ jobs:
         with:
           use-quiet-mode: "yes"
           config-file: ".github/mlc-config.json"
+
+  catalogue-integrity:
+    name: catalogue integrity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Validate catalogue.json structure
+        # The catalogue is the public vocabulary every issued credential is
+        # interpreted against. Its shape is load-bearing: every tool must
+        # carry all four capability flags and a data class registered in the
+        # catalogue's own data_classes list, or a credential attesting it is
+        # uninterpretable.
+        run: |
+          python3 - <<'PY'
+          import json, sys
+
+          errs = []
+          with open("catalogue/v1/catalogue.json") as f:
+              cat = json.load(f)
+
+          REQUIRED_TOP = [
+              "catalogue_version", "published", "issuer",
+              "registry", "archetypes", "data_classes", "tools",
+          ]
+          for key in REQUIRED_TOP:
+              if key not in cat:
+                  errs.append(f"missing required top-level key: {key!r}")
+
+          REQUIRED_FLAGS = [
+              "produces_synthetic_image",
+              "produces_synthetic_audio_video_text",
+              "publishes_public_interest_text",
+              "emotion_recognition_or_biometric_categorisation",
+          ]
+          data_classes = set(cat.get("data_classes", []))
+          tools = cat.get("tools", [])
+          if not tools:
+              errs.append("tools must be a non-empty list")
+
+          for tool in tools:
+              tid = tool.get("id", "<missing id>")
+              for key in ("id", "description", "data_class", "risk", "capabilities"):
+                  if key not in tool:
+                      errs.append(f"tool {tid}: missing key {key!r}")
+              if tool.get("data_class") not in data_classes:
+                  errs.append(
+                      f"tool {tid}: data_class {tool.get('data_class')!r} "
+                      f"is not in the registered data_classes {sorted(data_classes)}"
+                  )
+              caps = tool.get("capabilities", {})
+              for flag in REQUIRED_FLAGS:
+                  if not isinstance(caps.get(flag), bool):
+                      errs.append(
+                          f"tool {tid}: capability flag {flag!r} must be present "
+                          f"and boolean, got {caps.get(flag)!r}"
+                      )
+              extra = set(caps) - set(REQUIRED_FLAGS)
+              if extra:
+                  errs.append(f"tool {tid}: unknown capability flag(s) {sorted(extra)}")
+
+          if errs:
+              print("\n".join(errs)); sys.exit(1)
+          print(
+              f"catalogue OK: version {cat['catalogue_version']}, "
+              f"{len(cat['archetypes'])} archetypes, "
+              f"{len(data_classes)} data classes, {len(tools)} tools"
+          )
+          PY
+
+      - name: Recorded sha256 in catalogue/README.md matches catalogue.json
+        # The hash recorded in the ANCHORING section is what gets anchored
+        # on-chain. If the file and the recorded hash ever disagree, either
+        # the catalogue was edited without cutting a new version (immutability
+        # violation) or the README lies about what was anchored. Both must
+        # fail CI.
+        run: |
+          recorded=$(grep -oE 'sha256\(catalogue/v1/catalogue\.json\) = [0-9a-f]{64}' catalogue/README.md | grep -oE '[0-9a-f]{64}')
+          if [ -z "$recorded" ]; then
+            echo "no sha256 for catalogue/v1/catalogue.json recorded in catalogue/README.md"
+            exit 1
+          fi
+          actual=$(shasum -a 256 catalogue/v1/catalogue.json | cut -d' ' -f1)
+          echo "recorded: $recorded"
+          echo "actual:   $actual"
+          test "$recorded" = "$actual"
