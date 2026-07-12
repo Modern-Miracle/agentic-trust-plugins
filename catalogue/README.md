@@ -63,4 +63,10 @@ Two layers bind each version to the issuer:
 sha256(catalogue/v1/catalogue.json) = a7960e4d383749290e0e6a560a1e8ff1342d208aa43a05ef9b876bdb022221e1
 ```
 
-Chain anchor (Concordium testnet registerData tx): <PENDING — anchored by MM at publication>
+Chain anchor (Concordium testnet registerData tx):
+`351c7842d3ec624b382da741727c65892dc8364c4d33cf7bec69ef426c8bce28` (finalized
+in block `fc86fa20094119f8b2544cacd353d423bd9f34132fd0b841927fdcd0261fcee9`,
+2026-07-12). Anchor envelope format (52 bytes, hex-encoded on chain): the
+ASCII prefix `MM-CATALOGUE-v1.0.0:` followed by the raw 32-byte sha256 of
+`catalogue/v1/catalogue.json` — so any verifier can locate the anchor by
+prefix and compare the trailing 32 bytes against the committed file's hash
