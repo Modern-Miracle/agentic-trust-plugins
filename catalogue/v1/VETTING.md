@@ -1,23 +1,51 @@
-# Vetting rationale — catalogue v1.0.0
+# Vetting rationale — catalogue v1.x (current: v1.1.0)
 
 **Status: research-preview seed catalogue.** This is the initial vocabulary
 behind credentials issued by the Agentic Trust registry on the Concordium
-testnet. It was vetted by Modern Miracle founder review on 2026-07-12 — a
-single-issuer review, not an independent audit. It exists so that every
+testnet. v1.0.0 was vetted by Modern Miracle founder review on 2026-07-12;
+the v1.1.0 delta (the `significant_effect` flag and its per-tool rulings)
+on 2026-07-13 — single-issuer reviews, not an independent audit. It exists so that every
 vetting decision behind an issued credential is publicly inspectable and
 contestable, at the maturity the project actually has today.
 
-## The four capability flags
+## The capability flags
 
-Every tool carries exactly four boolean capability flags, chosen because each
-maps to a concrete EU AI Act transparency or prohibition surface:
+Every tool carries exactly five boolean capability flags (four since v1.0.0,
+`significant_effect` added in v1.1.0), chosen because each maps to a concrete
+EU regulatory surface:
 
-| Flag                                              | AI Act surface                                                 |
-| ------------------------------------------------- | -------------------------------------------------------------- |
-| `produces_synthetic_image`                        | Art. 50(2) synthetic-content marking                           |
-| `produces_synthetic_audio_video_text`             | Art. 50(2) synthetic-content marking                           |
-| `publishes_public_interest_text`                  | Art. 50(4) public-interest text disclosure                     |
-| `emotion_recognition_or_biometric_categorisation` | Art. 50(3) disclosure, adjacent to Art. 5 prohibited practices |
+| Flag                                              | Regulatory surface                                                                                                                                      |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `produces_synthetic_image`                        | AI Act Art. 50(2) synthetic-content marking                                                                                                             |
+| `produces_synthetic_audio_video_text`             | AI Act Art. 50(2) synthetic-content marking                                                                                                             |
+| `publishes_public_interest_text`                  | AI Act Art. 50(4) public-interest text disclosure                                                                                                       |
+| `emotion_recognition_or_biometric_categorisation` | AI Act Art. 50(3) disclosure, adjacent to Art. 5 prohibited practices                                                                                   |
+| `significant_effect` (v1.1.0)                     | GDPR Art. 22 / C-634/21 — executing the tool constitutes or directly produces a decision with legal or similarly significant effect on a natural person |
+
+**`significant_effect` feeds the registry's Art-22 scope derivation
+(v1.1.0).** Every credential issued from this catalogue version onward
+commits an `art22Flags` claim set on chain: `significant_effect_class` is
+derived from this registered flag across the selected tools,
+`processes_personal_data`/`affects_natural_person` from the effective data
+classes, and `fully_automated_path` from the issuer org's configured review
+route. None of the four is caller-assertable — the runtime gateway verifies
+the committed claims per governed call. The calibration discipline is the
+C-634/21 precision task: a **read** of person-related data is not a
+significant-effect decision; only a tool whose execution _is_ the
+determinative act (approve, decline, deny) carries `true`. Over-scoping
+here would drown genuine Art-22 exposure in noise; under-scoping would
+launder it — each `true`/`false` below is therefore an explicit vetting
+ruling.
+
+**Standing admission trigger — two-person verification (AI Act Art. 14(5)).**
+Any action based on a **remote biometric identification** system's output
+requires verification by at least two competent natural persons. This
+registry's human-review surface currently supports single-reviewer
+resolution; therefore **no tool conferring remote-biometric-identification
+capability may be admitted to this catalogue until N-reviewer ("four-eyes")
+resolution ships** (roadmap rung H2c in the registry's compliance ladder).
+This trigger is part of the vetting standard itself: an admission that
+violates it is an invalid admission, whatever its other merits.
 
 **`emotion_recognition_or_biometric_categorisation` is deliberately `false`
 on every tool in this catalogue.** Emotion recognition and biometric
@@ -36,7 +64,7 @@ Reads a claim record by its reference number. The record is business-process
 data about a claim's state, not a person's profile, so it is classed
 `operational` rather than `personal` — the tool surface returns claim-state
 fields, not identity fields. Risk is `low`: read-only, no decision authority,
-no outbound side effects. All four capability flags are false; the tool
+no outbound side effects. All capability flags are false; the tool
 generates nothing and publishes nothing.
 
 ### policy-lookup — operational / low
@@ -70,11 +98,15 @@ no synthetic content and publishes nothing.
 Approves or declines a claim that affects a real person. The decision is
 about a natural person and directly produces legal or similarly significant
 effects on them, so the data class is `personal` and the risk is `high` —
-this is the GDPR Art. 22 automated-decision surface, and the surrounding
-gateway policy (not this catalogue) is what enforces human oversight. The
-catalogue's job is to make it visible that a credential carried this
-authority. All capability flags are false; deciding is not generating or
-publishing content.
+this is the GDPR Art. 22 automated-decision surface. **`significant_effect`
+is `true` (v1.1.0) — the only tool in this catalogue that carries it**:
+approving or declining a claim IS the determinative act C-634/21 describes,
+not a read about one. From v1.1.0 this ruling is load-bearing, not
+descriptive: the registry derives the credential's chain-committed
+`art22Flags.significant_effect_class` from it, and the runtime gateway
+enforces the Art-22 review-route gate against that commitment on every
+governed call. The four v1.0.0 flags remain false; deciding is not
+generating or publishing content.
 
 ### health-record — special-category / high
 
