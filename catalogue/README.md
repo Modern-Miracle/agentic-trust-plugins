@@ -57,10 +57,28 @@ Two layers bind each version to the issuer:
 
 ## Anchoring
 
-### v1.0.0
+### v1.1.0 (current)
 
 ```
-sha256(catalogue/v1/catalogue.json) = a7960e4d383749290e0e6a560a1e8ff1342d208aa43a05ef9b876bdb022221e1
+sha256(catalogue/v1/catalogue.json) = 0525638b694247746c33dcc64a6195dec97db41f3a5e49a2cc3f5c25dc5a7169
+```
+
+Chain anchor (Concordium testnet registerData tx):
+`b1ee0ef990dc7949223116f29cc71a9d8397b4999a9dd629d2da27d345788c42` (finalized
+in block `d4a0f41266959b2eb6d9a0fee62f6759ba8854ed8b51261c7853b912e47b2184`,
+2026-07-13). Anchor envelope: the ASCII prefix `MM-CATALOGUE-v1.1.0:`
+followed by the raw 32-byte sha256 (52 bytes total, hex-encoded on chain).
+v1.1.0 adds the `significant_effect` capability flag — the registered input
+of the registry's GDPR Art-22 scope derivation (see `v1/VETTING.md`).
+
+### v1.0.0 (superseded 2026-07-13)
+
+Credentials minted while v1.0.0 was current still resolve against it; its
+canonical bytes are the file as committed at the v1.0.0 anchor commit (git
+history is the archive, the anchored hash is the proof):
+
+```
+sha256 of catalogue.json as anchored at v1.0.0 = a7960e4d383749290e0e6a560a1e8ff1342d208aa43a05ef9b876bdb022221e1
 ```
 
 Chain anchor (Concordium testnet registerData tx):
@@ -68,5 +86,5 @@ Chain anchor (Concordium testnet registerData tx):
 in block `fc86fa20094119f8b2544cacd353d423bd9f34132fd0b841927fdcd0261fcee9`,
 2026-07-12). Anchor envelope format (52 bytes, hex-encoded on chain): the
 ASCII prefix `MM-CATALOGUE-v1.0.0:` followed by the raw 32-byte sha256 of
-`catalogue/v1/catalogue.json` — so any verifier can locate the anchor by
+the v1.0.0 `catalogue.json` — so any verifier can locate the anchor by
 prefix and compare the trailing 32 bytes against the committed file's hash

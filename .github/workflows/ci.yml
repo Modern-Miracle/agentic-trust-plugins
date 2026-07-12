@@ -242,9 +242,10 @@ jobs:
       - name: Validate catalogue.json structure
         # The catalogue is the public vocabulary every issued credential is
         # interpreted against. Its shape is load-bearing: every tool must
-        # carry all four capability flags and a data class registered in the
-        # catalogue's own data_classes list, or a credential attesting it is
-        # uninterpretable.
+        # carry all five capability flags (four since v1.0.0 plus v1.1.0's
+        # significant_effect - the GDPR Art-22 derivation input) and a data
+        # class registered in the catalogue's own data_classes list, or a
+        # credential attesting it is uninterpretable.
         run: |
           python3 - <<'PY'
           import json, sys
@@ -266,6 +267,7 @@ jobs:
               "produces_synthetic_audio_video_text",
               "publishes_public_interest_text",
               "emotion_recognition_or_biometric_categorisation",
+              "significant_effect",
           ]
           data_classes = set(cat.get("data_classes", []))
           tools = cat.get("tools", [])
