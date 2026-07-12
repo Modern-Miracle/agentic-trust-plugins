@@ -29,6 +29,14 @@ local process, no configuration, no auth. See
 [`plugins/gateway/README.md`](plugins/gateway/README.md) for what the
 gateway verifies and how it fits the trust network.
 
+## Catalogue
+
+[`catalogue/`](catalogue/) publishes the **public, versioned vocabulary
+behind every issued credential** — the vetted tool catalogue the registry
+attests against, with per-tool vetting rationale and a per-version sha256
+anchored on Concordium. It is what lets any verifier resolve what a TASKER
+with `claims-lookup` actually means, without a key or an account.
+
 ## Distribution model
 
 Modern Miracle operates two asymmetric surfaces on purpose (restricted issuer

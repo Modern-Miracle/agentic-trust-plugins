@@ -1,0 +1,136 @@
+{
+  "catalogue_version": "1.0.0",
+  "published": "2026-07-12",
+  "issuer": "Modern Miracle OÜ",
+  "registry": {
+    "cis4": "12923,0",
+    "cis8004": "12802,0",
+    "network": "concordium-testnet"
+  },
+  "archetypes": [
+    {
+      "id": "COMMENTATOR"
+    },
+    {
+      "id": "NFT_MINTER"
+    },
+    {
+      "id": "ORIGINAL",
+      "note": "Listed in the taxonomy but REFUSED at issuance: its Art-50(2) marking obligations are deferred per ADR-16 OQ-10. No registered tool derives this archetype."
+    },
+    {
+      "id": "TASKER"
+    }
+  ],
+  "data_classes": ["financial", "operational", "personal", "special-category"],
+  "tools": [
+    {
+      "id": "claims-lookup",
+      "description": "Read a claim record by reference number.",
+      "data_class": "operational",
+      "risk": "low",
+      "capabilities": {
+        "produces_synthetic_image": false,
+        "produces_synthetic_audio_video_text": false,
+        "publishes_public_interest_text": false,
+        "emotion_recognition_or_biometric_categorisation": false
+      }
+    },
+    {
+      "id": "policy-lookup",
+      "description": "Read the cover details of an insurance policy.",
+      "data_class": "operational",
+      "risk": "low",
+      "capabilities": {
+        "produces_synthetic_image": false,
+        "produces_synthetic_audio_video_text": false,
+        "publishes_public_interest_text": false,
+        "emotion_recognition_or_biometric_categorisation": false
+      }
+    },
+    {
+      "id": "payment-status",
+      "description": "Check whether a payment has been sent or received.",
+      "data_class": "financial",
+      "risk": "medium",
+      "capabilities": {
+        "produces_synthetic_image": false,
+        "produces_synthetic_audio_video_text": false,
+        "publishes_public_interest_text": false,
+        "emotion_recognition_or_biometric_categorisation": false
+      }
+    },
+    {
+      "id": "customer-profile",
+      "description": "Read a customer's name and contact details.",
+      "data_class": "personal",
+      "risk": "high",
+      "capabilities": {
+        "produces_synthetic_image": false,
+        "produces_synthetic_audio_video_text": false,
+        "publishes_public_interest_text": false,
+        "emotion_recognition_or_biometric_categorisation": false
+      }
+    },
+    {
+      "id": "claim-decision",
+      "description": "Approve or decline a claim that affects a real person.",
+      "data_class": "personal",
+      "risk": "high",
+      "capabilities": {
+        "produces_synthetic_image": false,
+        "produces_synthetic_audio_video_text": false,
+        "publishes_public_interest_text": false,
+        "emotion_recognition_or_biometric_categorisation": false
+      }
+    },
+    {
+      "id": "health-record",
+      "description": "Read health information attached to a claim.",
+      "data_class": "special-category",
+      "risk": "high",
+      "capabilities": {
+        "produces_synthetic_image": false,
+        "produces_synthetic_audio_video_text": false,
+        "publishes_public_interest_text": false,
+        "emotion_recognition_or_biometric_categorisation": false
+      }
+    },
+    {
+      "id": "send-message",
+      "description": "Send a message to the counterparty organisation.",
+      "data_class": "operational",
+      "risk": "low",
+      "capabilities": {
+        "produces_synthetic_image": false,
+        "produces_synthetic_audio_video_text": false,
+        "publishes_public_interest_text": false,
+        "emotion_recognition_or_biometric_categorisation": false
+      }
+    },
+    {
+      "id": "nft-mint",
+      "description": "Generate and mint a synthetic image as an on-chain token.",
+      "data_class": "operational",
+      "risk": "medium",
+      "capabilities": {
+        "produces_synthetic_image": true,
+        "produces_synthetic_audio_video_text": false,
+        "publishes_public_interest_text": false,
+        "emotion_recognition_or_biometric_categorisation": false
+      }
+    },
+    {
+      "id": "content-generate",
+      "description": "Produce AI-written text/audio/video for publication on public-interest matters.",
+      "data_class": "operational",
+      "risk": "medium",
+      "capabilities": {
+        "produces_synthetic_image": false,
+        "produces_synthetic_audio_video_text": true,
+        "publishes_public_interest_text": true,
+        "emotion_recognition_or_biometric_categorisation": false
+      }
+    }
+  ]
+}
