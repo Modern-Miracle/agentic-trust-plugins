@@ -6,15 +6,23 @@ on:
   pull_request:
     branches: [main]
 
-permissions:
-  contents: read
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   schema-validate:
     name: JSON schema validation
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
@@ -96,8 +104,13 @@ jobs:
   mcp-config-validate:
     name: .mcp.json shape validation
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
 
       - name: Validate every .mcp.json under plugins/ has the correct remote-http shape
         run: |
@@ -166,11 +179,16 @@ jobs:
   gateway-reachability:
     name: gateway reachability smoke test
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
     # Informational: a transient outage of the hosted gateway must not block
     # merging repo changes. The job still runs and reports on every PR.
     continue-on-error: true
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
 
       - name: Health endpoint responds 200
         run: |
@@ -196,6 +214,9 @@ jobs:
   secret-scan:
     name: gitleaks secret scan
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
     env:
       GITLEAKS_VERSION: "8.30.1"
       # sha256 of gitleaks_8.30.1_linux_x64.tar.gz from the official release
@@ -205,6 +226,7 @@ jobs:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       # gitleaks/gitleaks-action v2+ requires a paid org license
       # (https://github.com/gitleaks/gitleaks-action#-announcement). Run the
@@ -225,8 +247,13 @@ jobs:
   markdown-link-check:
     name: markdown link check
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
 
       - uses: gaurav-nelson/github-action-markdown-link-check@3c3b66f1f7d0900e37b71eca45b63ea9eedfce31 # 1.0.17
         with:
@@ -236,8 +263,13 @@ jobs:
   catalogue-integrity:
     name: catalogue integrity
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
 
       - name: Validate catalogue.json structure
         # The catalogue is the public vocabulary every issued credential is
